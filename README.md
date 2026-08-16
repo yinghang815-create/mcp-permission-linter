@@ -3,7 +3,7 @@
 [![CI](https://github.com/yinghang815-create/mcp-permission-linter/actions/workflows/ci.yml/badge.svg)](https://github.com/yinghang815-create/mcp-permission-linter/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-`mcp-permission-linter` is a dependency-free Python CLI for auditing Model Context Protocol (MCP) server manifests and tool schemas. It finds permissions, security, credential, destructive-action, and AI-agent side-effect risks before a configuration reaches production.
+`mcp-permission-linter` is a lightweight Python CLI for auditing Model Context Protocol (MCP) server manifests and tool schemas. It finds permissions, security, credential, destructive-action, and AI-agent side-effect risks before a configuration reaches production. Python 3.11+ uses only the standard library; Python 3.10 installs the small `tomli` compatibility package for TOML parsing.
 
 ## Why
 

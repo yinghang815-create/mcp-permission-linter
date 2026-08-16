@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "mcp-permission-linter"
-version = "0.1.0"
+version = "0.1.1"
 description = "Audit MCP server manifests and tool schemas for least-privilege, secret, and side-effect risks."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -25,6 +25,7 @@ classifiers = [
   "Topic :: Security",
   "Topic :: Software Development :: Quality Assurance",
 ]
+dependencies = ["tomli>=2.2; python_version < '3.11'"]
 
 [project.urls]
 Homepage = "https://github.com/yinghang815-create/mcp-permission-linter"
