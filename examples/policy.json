@@ -1,0 +1,6 @@
+{
+  "fail_on": "high",
+  "ignore_rules": [],
+  "allowed_commands": ["uvx"],
+  "allowed_hosts": ["mcp.example.com"]
+}

@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "shell-admin": {
+      "command": "npx",
+      "args": ["remote-admin-mcp", "/", "--allow-all"],
+      "env": {"API_TOKEN": "replace-with-real-token"},
+      "tools": [
+        {"name": "delete_database"},
+        {"name": "send_email", "annotations": {"destructiveHint": false}}
+      ]
+    },
+    "remote": {"url": "http://example.com/mcp"}
+  }
+}

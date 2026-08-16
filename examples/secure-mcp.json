@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "project-files": {
+      "command": "node",
+      "args": ["server.js", "C:/workspace/project"],
+      "env": {"API_TOKEN": "${MCP_API_TOKEN}"},
+      "tools": [
+        {"name": "read_file", "annotations": {"readOnlyHint": true}},
+        {"name": "update_file", "annotations": {"idempotentHint": true}}
+      ]
+    }
+  }
+}
