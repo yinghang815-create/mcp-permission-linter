@@ -7,7 +7,10 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
-import tomllib
+try:
+    import tomllib
+except ModuleNotFoundError:  # Python 3.10
+    import tomli as tomllib
 
 from .models import Finding, Severity
 from .policy import Policy
