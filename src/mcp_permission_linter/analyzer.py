@@ -18,7 +18,10 @@ from .policy import Policy
 SHELL_COMMANDS = {"bash", "cmd", "cmd.exe", "powershell", "pwsh", "sh", "zsh"}
 PACKAGE_RUNNERS = {"bunx", "npx", "pipx", "pnpx", "uvx"}
 SECRET_KEY = re.compile(r"(?:api[_-]?key|authorization|credential|password|private[_-]?key|secret|token)", re.I)
-PLACEHOLDER = re.compile(r"^(?:\$\{?[A-Z0-9_]+\}?|<[^>]+>|changeme|redacted)$", re.I)
+PLACEHOLDER = re.compile(
+    r"^(?:Bearer\s+)?(?:\$[A-Z0-9_]+|\$\{(?:env:|input:)?[A-Z0-9_.:-]+\}|\$env:[A-Z0-9_]+|%[A-Z0-9_]+%|<[^>]+>|changeme|redacted)$",
+    re.I,
+)
 DANGEROUS_FLAGS = {
     "--allow-all",
     "--dangerously-skip-permissions",
@@ -26,6 +29,20 @@ DANGEROUS_FLAGS = {
     "--no-sandbox",
     "--unsafe",
 }
+SENSITIVE_PATH_MARKERS = {
+    "$home",
+    "$env:userprofile",
+    "%userprofile%",
+    "~",
+    "~/.aws",
+    "~/.config/gcloud",
+    "~/.gnupg",
+    "~/.kube",
+    "~/.ssh",
+    "/etc",
+    "/root",
+}
+IDEMPOTENCY_REMEDIATION = "Add idempotentHint=true only when retries are safe; otherwise enforce an idempotency key."
 
 TOOL_CATEGORIES: tuple[tuple[str, re.Pattern[str], Severity], ...] = (
     ("financial", re.compile(r"(?:^|[_-])(charge|pay|purchase|refund|transfer)(?:$|[_-])", re.I), Severity.CRITICAL),
@@ -66,7 +83,7 @@ def _finding(
 
 
 def _server_entries(document: dict[str, Any]) -> list[tuple[str, dict[str, Any]]]:
-    for key in ("mcpServers", "servers"):
+    for key in ("mcpServers", "mcp_servers", "servers"):
         value = document.get(key)
         if isinstance(value, dict):
             return [(str(name), config) for name, config in value.items() if isinstance(config, dict)]
@@ -82,11 +99,19 @@ def _server_entries(document: dict[str, Any]) -> list[tuple[str, dict[str, Any]]
 
 
 def _package_is_pinned(package: str) -> bool:
+    version = ""
     if "==" in package:
+        _, version = package.rsplit("==", 1)
+    elif "@" in package.lstrip("@"):
+        _, version = package.rsplit("@", 1)
+    return bool(re.fullmatch(r"v?\d+(?:\.\d+){1,3}(?:[-+][0-9A-Za-z.-]+)?|[0-9a-fA-F]{7,40}", version))
+
+
+def _is_sensitive_path(value: str) -> bool:
+    normalized = value.strip().strip("\"'").replace("\\", "/").rstrip("/").lower()
+    if normalized in SENSITIVE_PATH_MARKERS:
         return True
-    if package.startswith("@"):
-        return package.count("@") >= 2
-    return "@" in package
+    return any(normalized.endswith(suffix) for suffix in ("/.aws", "/.config/gcloud", "/.gnupg", "/.kube", "/.ssh"))
 
 
 def _analyze_command(config: dict[str, Any], path: str, server: str, policy: Policy) -> list[Finding]:
@@ -134,7 +159,7 @@ def _analyze_command(config: dict[str, Any], path: str, server: str, policy: Pol
             )
         )
 
-    broad_paths = [arg for arg in args if arg in {"/", "C:\\", "C:/"}]
+    broad_paths = [arg for arg in args if arg == "/" or re.fullmatch(r"[A-Za-z]:[\\/]?", arg)]
     if broad_paths:
         findings.append(
             _finding(
@@ -144,6 +169,32 @@ def _analyze_command(config: dict[str, Any], path: str, server: str, policy: Pol
                 path,
                 server=server,
                 remediation="Grant a project or data subdirectory instead of a filesystem root.",
+            )
+        )
+
+    sensitive_paths = sorted({arg for arg in args if arg not in broad_paths and _is_sensitive_path(arg)})
+    if sensitive_paths:
+        findings.append(
+            _finding(
+                "MPL013",
+                Severity.HIGH,
+                f"server is granted a sensitive user or system path: {', '.join(sensitive_paths)}",
+                path,
+                server=server,
+                remediation="Grant only the project subdirectory or specific files the server needs.",
+            )
+        )
+
+    env_vars = config.get("env_vars", [])
+    if env_vars == "*" or (isinstance(env_vars, list) and "*" in env_vars):
+        findings.append(
+            _finding(
+                "MPL014",
+                Severity.HIGH,
+                "wildcard environment forwarding can expose unrelated credentials",
+                path,
+                server=server,
+                remediation="Forward an explicit allowlist of environment variable names.",
             )
         )
     return findings
@@ -182,7 +233,7 @@ def _analyze_transport(config: dict[str, Any], path: str, server: str, policy: P
 
 def _analyze_secrets(config: dict[str, Any], path: str, server: str) -> list[Finding]:
     findings: list[Finding] = []
-    for section_name in ("env", "headers"):
+    for section_name in ("env", "headers", "http_headers"):
         section = config.get(section_name, {})
         if not isinstance(section, dict):
             continue
@@ -213,7 +264,13 @@ def _tool_category(name: str) -> tuple[str, Severity] | None:
 def _analyze_tools(config: dict[str, Any], path: str, server: str) -> list[Finding]:
     findings: list[Finding] = []
     tools = config.get("tools", [])
-    if tools == "*" or (isinstance(tools, list) and "*" in tools):
+    enabled_tools = config.get("enabled_tools", [])
+    if (
+        tools == "*"
+        or (isinstance(tools, list) and "*" in tools)
+        or enabled_tools == "*"
+        or (isinstance(enabled_tools, list) and "*" in enabled_tools)
+    ):
         findings.append(
             _finding(
                 "MPL008",
@@ -277,10 +334,19 @@ def _analyze_tools(config: dict[str, Any], path: str, server: str) -> list[Findi
                     path,
                     server=server,
                     tool=name,
-                    remediation=(
-                        "Add idempotentHint=true only when retries are safe; "
-                        "otherwise enforce an idempotency key."
-                    ),
+                    remediation=IDEMPOTENCY_REMEDIATION,
+                )
+            )
+        if category_name in {"external", "financial"} and annotations.get("openWorldHint") is False:
+            findings.append(
+                _finding(
+                    "MPL012",
+                    Severity.HIGH,
+                    f"{category_name} tool is marked openWorldHint=false despite external reach",
+                    path,
+                    server=server,
+                    tool=name,
+                    remediation="Set openWorldHint=true when the tool can reach external entities.",
                 )
             )
     return findings
@@ -298,7 +364,7 @@ def analyze_document(document: Any, *, path: str = "<memory>", policy: Policy | 
                 Severity.MEDIUM,
                 "no MCP servers or tool manifest found",
                 path,
-                remediation="Provide mcpServers, servers, command/url, or tools.",
+                remediation="Provide mcpServers, mcp_servers, servers, command/url, or tools.",
             )
         ]
 
@@ -328,7 +394,17 @@ def candidate_paths(paths: Iterable[str]) -> list[Path]:
     for raw_path in paths:
         path = Path(raw_path)
         if path.is_dir():
-            candidates.extend(sorted(item for item in path.rglob("*") if item.suffix.lower() in {".json", ".toml"}))
+            for item in sorted(path.rglob("*")):
+                if item.suffix.lower() not in {".json", ".toml"}:
+                    continue
+                try:
+                    document = load_document(item)
+                except (OSError, UnicodeError, json.JSONDecodeError, tomllib.TOMLDecodeError):
+                    if "mcp" in item.name.lower():
+                        candidates.append(item)
+                    continue
+                if isinstance(document, dict) and _server_entries(document):
+                    candidates.append(item)
         else:
             candidates.append(path)
     return candidates

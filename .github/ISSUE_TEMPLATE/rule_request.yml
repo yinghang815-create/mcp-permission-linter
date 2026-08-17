@@ -1,0 +1,31 @@
+name: Rule request
+description: Propose a deterministic MCP security or least-privilege check
+title: "rule: "
+labels: ["rule-request", "triage"]
+body:
+  - type: textarea
+    id: risk
+    attributes:
+      label: Risk and affected format
+      description: Explain the security impact and the client or protocol shape that exposes it.
+    validations:
+      required: true
+  - type: textarea
+    id: fixtures
+    attributes:
+      label: Safe and unsafe fixtures
+      description: Provide minimized examples with credentials removed.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: reference
+    attributes:
+      label: Primary reference
+      description: Link the relevant specification or security guidance.
+  - type: textarea
+    id: false_positives
+    attributes:
+      label: Likely false positives
+    validations:
+      required: true

@@ -37,6 +37,7 @@ class CliTests(unittest.TestCase):
             with redirect_stdout(stream):
                 main([str(path), "--format", "json"])
             report = json.loads(stream.getvalue())
+        self.assertEqual(report["version"], "0.2.0")
         self.assertEqual(report["findings"][0]["rule_id"], "MPL008")
 
     def test_sarif_output_has_schema(self):

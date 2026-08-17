@@ -1,0 +1,14 @@
+[mcp_servers.project_docs]
+command = "uvx"
+args = ["example-docs-mcp==1.2.3"]
+env_vars = ["DOCS_TOKEN"]
+enabled_tools = ["search", "read"]
+default_tools_approval_mode = "writes"
+
+[mcp_servers.project_docs.env]
+DOCS_TOKEN = "${env:DOCS_TOKEN}"
+
+[mcp_servers.remote_reference]
+url = "https://mcp.example.com/mcp"
+bearer_token_env_var = "REFERENCE_MCP_TOKEN"
+enabled_tools = ["search"]
