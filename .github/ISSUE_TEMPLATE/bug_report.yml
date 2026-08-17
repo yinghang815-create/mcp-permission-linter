@@ -1,0 +1,25 @@
+name: Bug report
+description: Report an incorrect result, crash, or client-format problem
+title: "bug: "
+labels: ["bug", "triage"]
+body:
+  - type: textarea
+    id: manifest
+    attributes:
+      label: Minimized manifest
+      description: Remove credentials and provide the smallest JSON or TOML input that reproduces the problem.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected and actual result
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Linter version and Python version
+    validations:
+      required: true

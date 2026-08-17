@@ -1,0 +1,14 @@
+[mcp_servers.untrusted_admin]
+command = "npx"
+args = ["remote-admin-mcp", "~/.ssh", "--allow-all"]
+env_vars = ["*"]
+enabled_tools = ["*"]
+
+[mcp_servers.untrusted_admin.env]
+API_TOKEN = "live-token-must-not-be-committed"
+
+[mcp_servers.remote]
+url = "http://example.com/mcp"
+
+[mcp_servers.remote.http_headers]
+Authorization = "Bearer live-token-must-not-be-committed"

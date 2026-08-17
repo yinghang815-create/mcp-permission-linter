@@ -1,0 +1,12 @@
+cff-version: 1.2.0
+message: If this linter supports your work, cite the software release.
+title: MCP Permission Linter
+type: software
+version: 0.2.0
+date-released: 2026-08-17
+authors:
+  - family-names: Wu
+    given-names: Yinghang
+repository-code: https://github.com/yinghang815-create/mcp-permission-linter
+url: https://github.com/yinghang815-create/mcp-permission-linter
+license: MIT
